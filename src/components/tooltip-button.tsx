@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader } from "lucide-react";
 
-// assuming the button variants types are something like following
+// Button variants type
 type ButtonVariant =
   | "ghost"
   | "link"
@@ -25,7 +25,7 @@ interface TooltipButtonProps {
   buttonVariant?: ButtonVariant;
   buttonClassName?: string;
   delay?: number;
-  disbaled?: boolean;
+  disabled?: boolean;   // ✅ fixed typo
   loading?: boolean;
 }
 
@@ -36,21 +36,20 @@ export const TooltipButton = ({
   buttonVariant = "ghost",
   buttonClassName = "",
   delay = 0,
-  disbaled = false,
+  disabled = false,
   loading = false,
 }: TooltipButtonProps) => {
   return (
     <TooltipProvider delayDuration={delay}>
       <Tooltip>
-        <TooltipTrigger
-          className={disbaled ? "cursor-not-allowed" : "cursor-pointer"}
-        >
+        {/* ✅ IMPORTANT FIX: asChild prevents nested button */}
+        <TooltipTrigger asChild>
           <Button
-            size={"icon"}
-            disabled={disbaled}
+            size="icon"
             variant={buttonVariant}
             className={buttonClassName}
             onClick={onClick}
+            disabled={disabled || loading}
           >
             {loading ? (
               <Loader className="min-w-4 min-h-4 animate-spin text-emerald-400" />
@@ -59,6 +58,7 @@ export const TooltipButton = ({
             )}
           </Button>
         </TooltipTrigger>
+
         <TooltipContent>
           <p>{loading ? "Loading..." : content}</p>
         </TooltipContent>

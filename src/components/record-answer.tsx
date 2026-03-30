@@ -11,7 +11,7 @@ import {
   WebcamIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import useSpeechToText,{ type ResultType }  from "react-hook-speech-to-text";
+import useSpeechToText, { type ResultType } from "react-hook-speech-to-text";
 import { useParams } from "react-router-dom";
 import WebCam from "react-webcam";
 import { TooltipButton } from "./tooltip-button";
@@ -51,6 +51,7 @@ export const RecordAnswer = ({
     results,
     startSpeechToText,
     stopSpeechToText,
+    error, // ✅ added
   } = useSpeechToText({
     continuous: true,
     useLegacyResults: false,
@@ -65,7 +66,19 @@ export const RecordAnswer = ({
   const { userId } = useAuth();
   const { interviewId } = useParams();
 
+  // ✅ handle mic errors
+  useEffect(() => {
+    if (error) {
+      console.log("Mic Error:", error);
+      toast.error("Microphone Error", {
+        description: error,
+      });
+    }
+  }, [error]);
+
   const recordUserAnswer = async () => {
+    console.log("isRecording:", isRecording);
+
     if (isRecording) {
       stopSpeechToText();
 
@@ -73,11 +86,9 @@ export const RecordAnswer = ({
         toast.error("Error", {
           description: "Your answer should be more than 30 characters",
         });
-
         return;
       }
 
-      //   ai result
       const aiResult = await generateResult(
         question.question,
         question.answer,
@@ -91,13 +102,9 @@ export const RecordAnswer = ({
   };
 
   const cleanJsonResponse = (responseText: string) => {
-    // Step 1: Trim any surrounding whitespace
     let cleanText = responseText.trim();
-
-    // Step 2: Remove any occurrences of "json" or code block symbols (``` or `)
     cleanText = cleanText.replace(/(json|```|`)/g, "");
 
-    // Step 3: Parse the clean JSON text into an array of objects
     try {
       return JSON.parse(cleanText);
     } catch (error) {
@@ -111,24 +118,22 @@ export const RecordAnswer = ({
     userAns: string
   ): Promise<AIResponse> => {
     setIsAiGenerating(true);
+
     const prompt = `
       Question: "${qst}"
       User Answer: "${userAns}"
       Correct Answer: "${qstAns}"
-      Please compare the user's answer to the correct answer, and provide a rating (from 1 to 10) based on answer quality, and offer feedback for improvement.
-      Return the result in JSON format with the fields "ratings" (number) and "feedback" (string).
+      Give rating (1-10) and feedback in JSON with "ratings" and "feedback".
     `;
 
     try {
       const text = await generateAI(prompt);
-
-const parsedResult: AIResponse = cleanJsonResponse(text);
-
+      const parsedResult: AIResponse = cleanJsonResponse(text);
       return parsedResult;
     } catch (error) {
       console.log(error);
       toast("Error", {
-        description: "An error occurred while generating feedback.",
+        description: "Error generating feedback.",
       });
       return { ratings: 0, feedback: "Unable to generate feedback" };
     } finally {
@@ -136,23 +141,25 @@ const parsedResult: AIResponse = cleanJsonResponse(text);
     }
   };
 
+  // ✅ FIXED safely
   const recordNewAnswer = () => {
     setUserAnswer("");
-    stopSpeechToText();
+
+    if (isRecording) {
+      stopSpeechToText();
+    }
+
     startSpeechToText();
   };
 
   const saveUserAnswer = async () => {
     setLoading(true);
 
-    if (!aiResult) {
-      return;
-    }
+    if (!aiResult) return;
 
     const currentQuestion = question.question;
-    try {
-      // query the firbase to check if the user answer already exists for this question
 
+    try {
       const userAnswerQuery = query(
         collection(db, "userAnswers"),
         where("userId", "==", userId),
@@ -161,37 +168,36 @@ const parsedResult: AIResponse = cleanJsonResponse(text);
 
       const querySnap = await getDocs(userAnswerQuery);
 
-      // if the user already answerd the question dont save it again
       if (!querySnap.empty) {
-        console.log("Query Snap Size", querySnap.size);
         toast.info("Already Answered", {
           description: "You have already answered this question",
         });
         return;
-      } else {
-        // save the user answer
-
-        await addDoc(collection(db, "userAnswers"), {
-          mockIdRef: interviewId,
-          question: question.question,
-          correct_ans: question.answer,
-          user_ans: userAnswer,
-          feedback: aiResult.feedback,
-          rating: aiResult.ratings,
-          userId,
-          createdAt: serverTimestamp(),
-        });
-
-        toast("Saved", { description: "Your answer has been saved.." });
       }
 
-      setUserAnswer("");
-      stopSpeechToText();
-    } catch (error) {
-      toast("Error", {
-        description: "An error occurred while generating feedback.",
+      await addDoc(collection(db, "userAnswers"), {
+        mockIdRef: interviewId,
+        question: question.question,
+        correct_ans: question.answer,
+        user_ans: userAnswer,
+        feedback: aiResult.feedback,
+        rating: aiResult.ratings,
+        userId,
+        createdAt: serverTimestamp(),
       });
+
+      toast("Saved", { description: "Answer saved successfully" });
+
+      setUserAnswer("");
+
+      if (isRecording) {
+        stopSpeechToText();
+      }
+    } catch (error) {
       console.log(error);
+      toast("Error", {
+        description: "Error saving answer.",
+      });
     } finally {
       setLoading(false);
       setOpen(!open);
@@ -209,7 +215,6 @@ const parsedResult: AIResponse = cleanJsonResponse(text);
 
   return (
     <div className="w-full flex flex-col items-center gap-8 mt-4">
-      {/* save modal */}
       <SaveModal
         isOpen={open}
         onClose={() => setOpen(false)}
@@ -229,7 +234,8 @@ const parsedResult: AIResponse = cleanJsonResponse(text);
         )}
       </div>
 
-      <div className="flex itece justify-center gap-3">
+      {/* ✅ fixed class */}
+      <div className="flex items-center justify-center gap-3">
         <TooltipButton
           content={isWebCam ? "Turn Off" : "Turn On"}
           icon={
@@ -270,7 +276,7 @@ const parsedResult: AIResponse = cleanJsonResponse(text);
             )
           }
           onClick={() => setOpen(!open)}
-          disbaled={!aiResult}
+          disabled={!aiResult} // ✅ fixed
         />
       </div>
 
@@ -278,13 +284,12 @@ const parsedResult: AIResponse = cleanJsonResponse(text);
         <h2 className="text-lg font-semibold">Your Answer:</h2>
 
         <p className="text-sm mt-2 text-gray-700 whitespace-normal">
-          {userAnswer || "Start recording to see your ansewer here"}
+          {userAnswer || "Start recording to see your answer here"}
         </p>
 
         {interimResult && (
           <p className="text-sm text-gray-500 mt-2">
-            <strong>Current Speech:</strong>
-            {interimResult}
+            <strong>Current Speech:</strong> {interimResult}
           </p>
         )}
       </div>

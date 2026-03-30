@@ -20,9 +20,11 @@ export const MockLoadPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isWebCamEnabled, setIsWebCamEnabled] = useState(false);
     const navigate = useNavigate();
-   if(!interviewId){
-    navigate("/generate",{replace:true});
-   }
+   useEffect(() => {
+  if (!interviewId) {
+    navigate("/generate", { replace: true });
+  }
+}, [interviewId, navigate]);
   useEffect(() => {
     const fetchInterview = async () => {
       if (interviewId) {
