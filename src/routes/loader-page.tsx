@@ -1,5 +1,4 @@
 import { cn } from '@/lib/utils';
-import React from 'react'
 import {Loader} from "lucide-react"
 export const LoaderPage = ({className}:{className?:string}) => {
   return <div className={cn(
