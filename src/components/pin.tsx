@@ -64,7 +64,7 @@ export const InterviewPin = ({
               onClick={() => {
                 navigate(`/generate/${interview?.id}`, { replace: true });
               }}
-              disbaled={false}
+              disabled={false}
               buttonClassName="hover:text-sky-500"
               icon={<Eye />}
               loading={false}
@@ -78,7 +78,7 @@ export const InterviewPin = ({
                   replace: true,
                 });
               }}
-              disbaled={false}
+              disabled={false}
               buttonClassName="hover:text-yellow-500"
               icon={<Newspaper />}
               loading={false}
@@ -92,7 +92,7 @@ export const InterviewPin = ({
                   replace: true,
                 });
               }}
-              disbaled={false}
+              disabled={false}
               buttonClassName="hover:text-sky-500"
               icon={<Sparkles />}
               loading={false}
